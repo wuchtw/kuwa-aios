@@ -16,7 +16,7 @@ rm -rf public/storage
 rm -rf storage/app/public/root/custom
 rm -rf storage/app/public/root/database
 rm -rf storage/app/public/root/bin
-rm -rf storage/app/public/root/bot
+rm -rf storage/app/public/root/bootstrap/bot
 
 # Recreate storage symlink
 php artisan storage:link

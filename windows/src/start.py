@@ -213,7 +213,6 @@ def start_servers():
         try: requests.get("http://127.0.0.1:9000", timeout=1); break
         except: time.sleep(1)
 
-    exclude_args = []
     executors_dir = os.path.join(base_dir, "executors")
     folder_paths = [
         os.path.join(executors_dir, folder)
@@ -222,28 +221,72 @@ def start_servers():
     ]
 
     def process_folder(folder_path, max_init_delay_sec:int=10):
-        run_bat = os.path.join(folder_path, "run.bat")
-        init_bat = os.path.join(folder_path, "init.bat")
-        # Random delay to avoid competing database's lock
+        run_bat_path = os.path.join(folder_path, "run.bat")
+        init_bat_path = os.path.join(folder_path, "init.bat")
+        artisan_commands = []
+        exclude_code = None
+        
         time.sleep(random.uniform(0, max_init_delay_sec))
         try:
-            if os.path.exists(init_bat) and not os.path.exists(run_bat):
+            if os.path.exists(init_bat_path) and not os.path.exists(run_bat_path):
                 subprocess.call("init.bat quick", cwd=folder_path, shell=True)
-            if os.path.exists(run_bat):
-                subprocess.call("run.bat", cwd=folder_path, shell=True)
-                code = extract_executor_access_code(run_bat)
+            
+            if os.path.exists(run_bat_path):
+                other_commands_for_temp_script = []
+                
+                with open(run_bat_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        if "php artisan" in line.lower():
+                            artisan_commands.append(line.strip())
+                        else:
+                            other_commands_for_temp_script.append(line)
+                
+                if other_commands_for_temp_script:
+                    temp_bat_name = f"temp_run_{random.randint(1000,9999)}.bat"
+                    temp_bat_path = os.path.join(folder_path, temp_bat_name)
+                    
+                    try:
+                        with open(temp_bat_path, 'w', encoding='utf-8') as temp_f:
+                            temp_f.writelines(other_commands_for_temp_script)
+                        
+                        subprocess.call(temp_bat_name, cwd=folder_path, shell=True)
+                    
+                    finally:
+                        if os.path.exists(temp_bat_path):
+                            os.remove(temp_bat_path)
+
+                code = extract_executor_access_code(run_bat_path)
                 if code:
-                    return f"--exclude={code}"
+                    exclude_code = f"--exclude={code}"
+                    
         except Exception as e:
             print(f"Error processing {folder_path}: {e}")
-        return None
+            
+        return (exclude_code, artisan_commands)
 
+    exclude_args = []
+    all_artisan_commands = []
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(process_folder, path) for path in folder_paths]
         for future in concurrent.futures.as_completed(futures):
-            result = future.result()
-            if result:
-                exclude_args.append(result)
+            try:
+                exclude_code, artisan_commands = future.result()
+                if exclude_code:
+                    exclude_args.append(exclude_code)
+                if artisan_commands:
+                    all_artisan_commands.extend(artisan_commands)
+            except Exception as e:
+                print(f"A task in process_folder generated an exception: {e}")
+
+    if all_artisan_commands:
+        print("--- Executing collected artisan commands sequentially ---")
+        for command in all_artisan_commands:
+            print(f"Executing: {command}")
+            try:
+                subprocess.call(command, cwd=web_path, shell=True)
+            except Exception as e:
+                print(f"Error executing '{command}': {e}")
+        print("--- Finished executing artisan commands ---")
 
     if exclude_args:
         subprocess.call(
@@ -251,6 +294,7 @@ def start_servers():
             cwd=web_path,
             shell=True
         )
+
     http_server_runtime = os.environ.get("HTTP_Server_Runtime", "nginx")
     if (http_server_runtime == "apache"):
         apache_folder = os.path.join("Apache_" + os.environ.get("apache_folder", "apache"), "Apache24")

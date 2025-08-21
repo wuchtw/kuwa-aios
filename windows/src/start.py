@@ -1,4 +1,9 @@
-import os, subprocess, shutil, requests, time, sys, re, psutil, concurrent.futures, threading, random
+import os, subprocess, shutil, requests, time, sys, re, psutil, concurrent.futures, threading, random, glob
+
+MAX_WORKERS = 10
+MAX_RETRIES = 5
+INITIAL_DELAY = 2
+BOT_IMPORT_FAILURE_KEYWORDS = ("cannot be imported", "does not exist")
 
 processes = []
 base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -280,8 +285,66 @@ def start_servers():
 
     subprocess.call("php artisan model:reset-health", cwd=web_path, shell=True)
     time.sleep(4)
-    subprocess.call("src\\import_bots.bat", shell=True)
-    time.sleep(1)
+    
+    def import_bot(bot_file_path):
+        name = os.path.basename(bot_file_path)
+        command = f'php artisan bot:import "{bot_file_path}"'
+        
+        for attempt in range(MAX_RETRIES):
+            print(f"--- Importing {name} (Attempt {attempt + 1}/{MAX_RETRIES}) ---")
+            try:
+                result = subprocess.run(
+                    command, cwd=web_path, shell=True, capture_output=True,
+                    text=True, encoding="utf-8"
+                )
+                
+                output = result.stdout + result.stderr
+                with log_lock:
+                    print(output, end='')
+
+                is_success = result.returncode == 0
+                if is_success:
+                    for keyword in BOT_IMPORT_FAILURE_KEYWORDS:
+                        if keyword in output.lower():
+                            print(f"--- FAILED: Detected failure keyword '{keyword}' in output for {name}. ---")
+                            is_success = False
+                            break
+                
+                if is_success:
+                    print(f"--- SUCCESS: Finished import for {name} ---")
+                    return f"Success: {name}"
+                elif result.returncode != 0:
+                    print(f"--- FAILED: Import for {name} (Exit Code: {result.returncode}) ---")
+
+            except Exception as e:
+                print(f"--- EXCEPTION while importing {name}: {e} ---")
+
+            if attempt < MAX_RETRIES - 1:
+                delay = INITIAL_DELAY * (2 ** attempt) + random.uniform(0, 1)
+                print(f"--- Retrying {name} in {delay:.2f} seconds... ---")
+                time.sleep(delay)
+            else:
+                print(f"--- GIVING UP on {name} after {MAX_RETRIES} attempts. ---")
+                return f"Failed: {name}"
+
+    print("Importing bots concurrently...")
+    bots_dir = os.path.join(kuwa_root, "bootstrap", "bot")
+    if os.path.isdir(bots_dir):
+        bot_files = [f for f in glob.glob(os.path.join(bots_dir, '*.*')) if os.path.isfile(f)]
+        if bot_files:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                future_to_bot = {executor.submit(import_bot, path): path for path in bot_files}
+                for future in concurrent.futures.as_completed(future_to_bot):
+                    bot_path = future_to_bot[future]
+                    try:
+                        result = future.result()
+                        print(f"--- Final status for {os.path.basename(bot_path)}: {result} ---")
+                    except Exception as exc:
+                        print(f"--- Task for {os.path.basename(bot_path)} generated an exception: {exc} ---")
+        else:
+            print("No bot files found to import.")
+    else:
+        print(f"Bot directory not found, skipping import: {bots_dir}")
 
     print("System initialized. Press Ctrl+C or type 'stop' to exit.")
     subprocess.call('start http://127.0.0.1', shell=True)

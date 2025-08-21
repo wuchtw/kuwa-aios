@@ -194,6 +194,22 @@ def extract_executor_access_code(path):
                 if m: return m.group(1).strip()
     return None
 
+def get_bot_access_code(file_path):
+    """Extracts the full KUWABOT base access code from a bot file."""
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                if line.strip().upper().startswith('KUWABOT BASE'):
+                    match = re.search(r'KUWABOT\s+base\s+(.*)', line, re.IGNORECASE)
+                    if match:
+                        access_code = match.group(1).strip()
+                        # Remove quotes
+                        access_code = access_code.strip('"\'')
+                        return access_code
+    except Exception as e:
+        print(f"Could not read or parse bot file {file_path}: {e}")
+    return None
+
 def start_servers():
     redis_path = os.path.join(base_dir, "packages", os.environ.get("redis_folder", "redis"))
     rdb = os.path.join(redis_path, "dump.rdb")
@@ -277,6 +293,15 @@ def start_servers():
                     all_artisan_commands.extend(artisan_commands)
             except Exception as e:
                 print(f"A task in process_folder generated an exception: {e}")
+                
+    excluded_access_codes = set()
+    for arg in exclude_args:
+        if arg.startswith('--exclude=') and len(arg) > 10:
+            excluded_access_codes.add(arg[10:])
+    
+    if excluded_access_codes:
+        print(f"Bots to be initialized separately (will be excluded from general import): {', '.join(excluded_access_codes)}")
+
 
     if all_artisan_commands:
         print("--- Executing collected artisan commands sequentially ---")
@@ -371,13 +396,24 @@ def start_servers():
                 print(f"--- GIVING UP on {name} after {MAX_RETRIES} attempts. ---")
                 return f"Failed: {name}"
 
-    print("Importing bots concurrently...")
+    print("--- Preparing to import bots... ---")
     bots_dir = os.path.join(kuwa_root, "bootstrap", "bot")
     if os.path.isdir(bots_dir):
-        bot_files = [f for f in glob.glob(os.path.join(bots_dir, '*.*')) if os.path.isfile(f)]
-        if bot_files:
+        all_bot_files = [f for f in glob.glob(os.path.join(bots_dir, '*.*')) if os.path.isfile(f)]
+        
+        bot_files_to_import = []
+        print("Filtering bots based on initialization status...")
+        for bot_path in all_bot_files:
+            access_code = get_bot_access_code(bot_path)
+            if access_code and access_code in excluded_access_codes:
+                bot_files_to_import.append(bot_path)
+            else:
+                print(f"-> Excluding '{os.path.basename(bot_path)}' (access code: {access_code}) because it's not being used")
+
+        if bot_files_to_import:
+            print("Importing bots concurrently...")
             with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-                future_to_bot = {executor.submit(import_bot, path): path for path in bot_files}
+                future_to_bot = {executor.submit(import_bot, path): path for path in bot_files_to_import}
                 for future in concurrent.futures.as_completed(future_to_bot):
                     bot_path = future_to_bot[future]
                     try:
@@ -386,7 +422,7 @@ def start_servers():
                     except Exception as exc:
                         print(f"--- Task for {os.path.basename(bot_path)} generated an exception: {exc} ---")
         else:
-            print("No bot files found to import.")
+            print("No bot files left to import after filtering.")
     else:
         print(f"Bot directory not found, skipping import: {bots_dir}")
 

@@ -158,30 +158,42 @@ def extract_packages():
         os.remove(zip_path)
     if os.path.exists(os.path.abspath("init.txt")):
         with open("init.txt") as f:
-            env = dict(line.strip().split("=", 1) for line in f if "=" in line)
+            config_data = dict(line.strip().split("=", 1) for line in f if "=" in line)
+        username = config_data.get("username", "")
+        password = config_data.get("password", "")
+        autologin = config_data.get("autologin", "").lower() == "true"
 
-        username = env.get("username", "")
-        name = username.split("@")[0]
-        password = env.get("password", "")
-        autologin = env.get("autologin", "").lower() == "true"
+        name = username.split("@")[0] if "@" in username else ""
 
-        subprocess.call(f"php artisan create:admin-user --name={name} --email={username} --password={password}", cwd=multi_chat, shell=True)
+        if name and username and password:
+            subprocess.call(
+                f"php artisan create:admin-user --name={name} --email={username} --password={password}",
+                cwd=multi_chat,
+                shell=True
+            )
 
-        if autologin:
+        if autologin and username:
             with open(env_file, encoding="utf-8") as f:
                 content = f.read()
+
             content = re.sub(
                 r'^APP_AUTO_EMAIL=.*$', '', content, flags=re.MULTILINE
             ).strip()
+
             content += f"\nAPP_AUTO_EMAIL={username}\n"
+
             with open(env_file, "w", encoding="utf-8") as f:
                 f.write(content)
+
             for cmd in [
                 "php artisan config:clear",
                 "php artisan cache:clear",
-                "php artisan config:cache",]:
+                "php artisan config:cache",
+            ]:
                 subprocess.call(cmd, cwd=multi_chat, shell=True)
-        os.remove(os.path.abspath("init.txt"))
+
+        if os.path.exists("init.txt"):
+            os.remove(os.path.abspath("init.txt"))
     if not os.path.exists("packages\composer.bat"):
         with open("packages\composer.bat", 'w') as f:
             f.write('php "%~dp0composer.phar" %*\n')

@@ -260,27 +260,27 @@ REM Install dependency of whisper
 call src\download_extract.bat %url_ffmpeg% packages\%ffmpeg_folder% packages\. ffmpeg.zip
 REM Install dependency of n8n
 where n8n >nul 2>nul
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo Installing n8n
     call npm.cmd install -g "n8n@1.73.1"
 ) else (
     for /f "delims=" %%i in ('n8n --version') do set "N8N_VERSION=%%i"
-    if "%N8N_VERSION%" neq "1.73.1" (
+
+    if "!N8N_VERSION!" neq "1.73.1" (
         echo Updating n8n to 1.73.1
         call npm.cmd install -g "n8n@1.73.1"
     ) else (
-        echo n8n 1.73.1 already installed, skipping
+        echo n8n 1.73.1 is already installed, skipping.
     )
 )
 REM Install dependency of Mermaid Tool
 where mmdc >nul 2>nul
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo Installing @mermaid-js/mermaid-cli...
     call npm.cmd install -g "@mermaid-js/mermaid-cli" --no-audit --no-fund
 ) else (
     for /f "delims=" %%i in ('mmdc --version') do set "MERMAID_VERSION=%%i"
-    REM Optional: if you want to check a specific version, insert it here
-    echo mermaid-cli %MERMAID_VERSION% already installed. Skipping.
+    echo mermaid-cli !MERMAID_VERSION! already installed. Skipping.
 )
 
 for %%i in ("postinstall\*.bat") do (

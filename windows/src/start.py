@@ -10,6 +10,7 @@ base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 kuwa_root = os.getenv("KUWA_ROOT", os.path.join(base_dir, "kuwa_root"))
 os.makedirs(os.path.join(base_dir, "logs"), exist_ok=True)
 log_path = os.path.join(base_dir, "logs", "start.log")
+
 def wait_and_remove(path, retry_interval=0.5, timeout=60):
     start_time = time.time()
     while os.path.exists(path):
@@ -51,6 +52,26 @@ def logged_input(prompt=""):
     print(line.rstrip('\n'))
     return line.rstrip('\n')
 input = logged_input
+
+def cleanup_temp_bats():
+    """
+    Scans the executors directory and removes temporary run batch files.
+    This function is called at startup, after background processes are launched, and at shutdown.
+    """
+    print("--- Cleaning up temporary run batch files ---")
+    executors_dir = os.path.join(base_dir, "executors")
+    if not os.path.isdir(executors_dir):
+        return
+    
+    for dirpath, _, filenames in os.walk(executors_dir):
+        for filename in filenames:
+            if filename.startswith("temp_run_") and filename.endswith(".bat"):
+                temp_bat_path = os.path.join(dirpath, filename)
+                try:
+                    os.remove(temp_bat_path)
+                    print(f"Removed temporary file: {temp_bat_path}")
+                except OSError as e:
+                    print(f"Error removing temporary file {temp_bat_path}: {e}")
 
 def run_and_log(cmd, cwd=None):
     """
@@ -130,6 +151,9 @@ def terminate_proc(proc, current_pid):
 
 def hard_exit(restart):
     print("--- Initiating hard exit ---")
+    
+    cleanup_temp_bats()
+
     services = [
         ("Redis", "redis-cli.exe shutdown", os.path.join(base_dir, "packages", os.environ.get("redis_folder") or "redis")),
         ("Laravel worker", "php artisan worker:stop", os.path.abspath("../src/multi-chat"))
@@ -306,8 +330,6 @@ def start_servers():
                             temp_f.write("\n".join(other_commands))
                         
                         run_background(temp_bat_name, cwd=folder_path)
-                        if os.path.exists(temp_bat_path):
-                            os.remove(temp_bat_path)
                     except Exception as e:
                         print(f"Error preparing to launch background task in {folder_path}: {e}")
 
@@ -426,6 +448,8 @@ def start_servers():
     else:
         print(f"Bot directory not found, skipping import: {bots_dir}")
 
+    cleanup_temp_bats()
+
     print("--- System initialized. Press Ctrl+C or type a command. ---")
     run_and_log('start http://127.0.0.1')
 
@@ -449,6 +473,8 @@ def command_loop():
             hard_exit(False)
 
 if __name__ == "__main__":
+    cleanup_temp_bats()
+
     extract_packages()
     start_servers()
     command_loop()

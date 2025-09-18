@@ -30,16 +30,156 @@
     <script src="{{ asset('js/jquery-ui.min.js') }}"></script>
 
     <script>
-        function chain_toggle() {
-            $.get("{{ route('room.chain') }}", {
-                switch: $('#chained').prop('disabled')
-            }, function() {
-                $('#chained').prop('disabled', !$('#chained').prop('disabled'));
-                $('#chain_btn').toggleClass('bg-green-500 hover:bg-green-600 bg-red-600 hover:bg-red-700');
-                $('#chain_btn').text($('#chained').prop('disabled') ? '{{ __('chat.button.unchain') }}' :
-                    '{{ __('chat.button.chained') }}')
-            })
+        function updateChainButtonUI(isChained, checkboxElement) {
+            const $checkbox = $(checkboxElement);
+
+            const checkboxId = $checkbox.attr('id');
+            const $label = $('label[for="' + checkboxId + '"]');
+
+            const textOn = $checkbox.data('text-on');
+            const textOff = $checkbox.data('text-off');
+
+            $label.toggleClass('bg-green-500 hover:bg-green-600', isChained);
+            $label.toggleClass('bg-red-600 hover:bg-red-700', !isChained);
+
+            const buttonText = isChained ? textOn : textOff;
+            $label.text(buttonText);
         }
+
+        function handleSettingChange(element) {
+            const $element = $(element);
+            let newSettingValue;
+
+            if ($element.is('button')) {
+                const isCurrentlyOn = $element.hasClass('bg-green-500');
+                newSettingValue = !isCurrentlyOn;
+            } else if ($element.prop('type') === 'checkbox') {
+                newSettingValue = $element.prop('checked');
+            } else {
+                newSettingValue = $element.val();
+            }
+
+            const uiCallback = $element.data('ui-callback');
+            if (uiCallback && window[uiCallback] && typeof window[uiCallback] === 'function') {
+                window[uiCallback](newSettingValue, $element);
+            }
+
+            const targetSelector = $element.data('toggles-target');
+            if (targetSelector) {
+                const $target = $(targetSelector);
+                const isChecked = $element.prop('checked');
+                $target.toggle(isChecked);
+                $target.prop('disabled', !isChecked);
+                if (!isChecked) {
+                    $target.val('').trigger('input');
+                }
+            }
+
+            const updatesTargetSelector = $element.data('updates-value-of');
+            if (updatesTargetSelector) {
+                const updatePattern = $element.data('update-pattern');
+                if (updatePattern) {
+                    const newValue = updatePattern.replace('{value}', encodeURIComponent($element.val()));
+                    $(updatesTargetSelector).val(newValue);
+                }
+            }
+
+            saveAllSettingsToLocalStorage();
+        }
+
+        function saveAllSettingsToLocalStorage() {
+            const settingsToUpdate = {};
+            $('[data-setting]').each(function() {
+                const $element = $(this);
+                const settingName = $element.data('setting');
+                let settingValue;
+
+                if ($element.is('button')) {
+                    settingValue = $element.hasClass('bg-green-500');
+                } else if ($element.prop('type') === 'checkbox') {
+                    settingValue = $element.prop('checked');
+                } else if ($element.is('input[type="text"]')) {
+                    settingValue = $element.val();
+                }
+
+                if (settingName) {
+                    settingsToUpdate[settingName] = settingValue;
+                }
+            });
+
+            if (Object.keys(settingsToUpdate).length === 0) {
+                return;
+            }
+
+            try {
+                localStorage.setItem('userSettings', JSON.stringify(settingsToUpdate));
+            } catch (error) {
+                console.error('Failed to save settings to localStorage:', error);
+                alert(
+                    "Error: Could not save settings. Please check if your browser supports localStorage and it's not full."
+                );
+            }
+        }
+
+        function loadSettingsFromLocalStorage() {
+            const savedSettings = localStorage.getItem('userSettings');
+            if (!savedSettings) {
+                return;
+            }
+
+            const settings = JSON.parse(savedSettings);
+
+            for (const settingName in settings) {
+                if (settings.hasOwnProperty(settingName)) {
+                    const settingValue = settings[settingName];
+                    const $element = $(`[data-setting="${settingName}"]`);
+
+                    if ($element.length) {
+                        const uiCallback = $element.data('ui-callback');
+                        if (uiCallback && window[uiCallback] && typeof window[uiCallback] === 'function') {
+                            window[uiCallback](settingValue, $element);
+                        }
+
+                        if ($element.prop('type') === 'checkbox') {
+                            // This generally doesn't trigger a 'change' event by itself
+                            $element.prop('checked', settingValue);
+                        } else if ($element.is('input[type="text"]')) {
+                            // This generally doesn't trigger an 'input' or 'change' event
+                            $element.val(settingValue);
+                        }
+
+                        // Handle the UI toggling based on the loaded setting
+                        if ($element.prop('type') === 'checkbox') {
+                            const targetSelector = $element.data('toggles-target');
+                            if (targetSelector) {
+                                const $target = $(targetSelector);
+                                $target.toggle(settingValue);
+                                $target.prop('disabled', !settingValue);
+                                if (!settingValue) {
+                                    // Directly set the value without triggering the 'input' event
+                                    $target.val('');
+                                }
+                            }
+                        }
+
+                        // Update the value of another element based on the loaded setting
+                        if ($element.is('input[type="text"]')) {
+                            const updatesTargetSelector = $element.data('updates-value-of');
+                            if (updatesTargetSelector) {
+                                const updatePattern = $element.data('update-pattern');
+                                if (updatePattern) {
+                                    const newValue = updatePattern.replace('{value}', encodeURIComponent(settingValue));
+                                    $(updatesTargetSelector).val(newValue);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        $(document).ready(function() {
+            loadSettingsFromLocalStorage();
+        });
 
         function appendMessage(message, isSuccess, container_id) {
             const messageDiv = $('<div></div>').text(message).addClass(

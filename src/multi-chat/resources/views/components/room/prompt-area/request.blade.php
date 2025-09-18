@@ -39,16 +39,16 @@
                                         class="inline h-5 w-5 rounded-full border border-gray-400 dark:border-gray-900 bg-black overflow-hidden">
 
                                         @env('arena')
-                                        <div class="h-full w-full bg-black flex justify-center items-center text-white">
-                                            ?</div>
-                                    @else
-                                        <div id="llm_{{ $llm->id }}_toggle" role="tooltip"
-                                            class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-600">
-                                            {{ $llm->name }}
-                                            <div class="tooltip-arrow" data-popper-arrow></div>
-                                        </div>
-                                        <img
-                                            src="{{ $llm->image ?? $llm->base_image ? asset(Storage::url($llm->image ?? $llm->base_image)) : '/' . config('app.LLM_DEFAULT_IMG') }}">
+                                            <div class="h-full w-full bg-black flex justify-center items-center text-white">
+                                                ?</div>
+                                        @else
+                                            <div id="llm_{{ $llm->id }}_toggle" role="tooltip"
+                                                class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-600">
+                                                {{ $llm->name }}
+                                                <div class="tooltip-arrow" data-popper-arrow></div>
+                                            </div>
+                                            <img
+                                                src="{{ $llm->image ?? $llm->base_image ? asset(Storage::url($llm->image ?? $llm->base_image)) : '/' . config('app.LLM_DEFAULT_IMG') }}">
                                         @endenv
                                     </div>
                                 </span>
@@ -64,16 +64,16 @@
                                         class="inline h-5 w-5 rounded-full border border-gray-400 dark:border-gray-900 bg-black overflow-hidden">
 
                                         @env('arena')
-                                        <div class="h-full w-full bg-black flex justify-center items-center text-white">
-                                            ?</div>
-                                    @else
-                                        <div id="llm_{{ $llm->id }}_direct_send" role="tooltip"
-                                            class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-600">
-                                            {{ $llm->name }}
-                                            <div class="tooltip-arrow" data-popper-arrow></div>
-                                        </div>
-                                        <img
-                                            src="{{ $llm->image ?? $llm->base_image ? asset(Storage::url($llm->image ?? $llm->base_image)) : '/' . config('app.LLM_DEFAULT_IMG') }}">
+                                            <div class="h-full w-full bg-black flex justify-center items-center text-white">
+                                                ?</div>
+                                        @else
+                                            <div id="llm_{{ $llm->id }}_direct_send" role="tooltip"
+                                                class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-600">
+                                                {{ $llm->name }}
+                                                <div class="tooltip-arrow" data-popper-arrow></div>
+                                            </div>
+                                            <img
+                                                src="{{ $llm->image ?? $llm->base_image ? asset(Storage::url($llm->image ?? $llm->base_image)) : '/' . config('app.LLM_DEFAULT_IMG') }}">
                                         @endenv
                                     </div>
                                 </span>
@@ -83,10 +83,16 @@
                 </div>
             @endif
             <div class="flex w-full items-center relative">
-                <button type="button" onclick="chain_toggle()" id="chain_btn"
-                    class="whitespace-nowrap h-[40px] text-white {{ \Session::get('chained') ?? true ? 'bg-green-500 hover:bg-green-600' : 'bg-red-600 hover:bg-red-700' }} px-2 py-1 rounded-l-lg">
-                    {{ \Session::get('chained') ?? true ? __('chat.button.chained') : __('chat.button.unchain') }}
-                </button>
+                <div class="flex items-center">
+                    <input type="checkbox" id="chain_toggle" class="peer appearance-none hidden" data-setting="chain"
+                        name="chain" data-ui-callback="updateChainButtonUI"
+                        data-text-on="{{ __('chat.button.chained') }}" data-text-off="{{ __('chat.button.unchain') }}"
+                        onchange="handleSettingChange(this)">
+                    <label for="chain_toggle"
+                        class="whitespace-nowrap flex justify-center items-center h-[40px] text-white bg-green-500 hover:bg-green-600 px-2 py-1 rounded-l-lg cursor-pointer">
+                        {{ __('chat.button.chained') }}
+                    </label>
+                </div>
 
                 <label for="upload" id="upload_btn"
                     class="cursor-pointer bg-blue-600 h-[40px] w-[40px] hover:bg-blue-500 dark:hover:bg-blue-700 text-white flex items-center justify-center">

@@ -110,6 +110,7 @@ class RoomController extends Controller
     {
         $historys = $request->input('history');
         $bot_ids = $request->input('llm_ids');
+        $chained = $request->input('chain','off') == "on";
         $room_id = $request->input('room_id');
         $filename = $request->input('import_file_name');
         if ($historys) {
@@ -217,7 +218,7 @@ class RoomController extends Controller
                                     $data[] = clone $newMessage;
                                 }
                             }
-                            $chainValue = isset($message->chain) ? (bool) $message->chain : (Session::get('chained') ?? true) == true;
+                            $chainValue = isset($message->chain) ? (bool) $message->chain : $chained;
                             if (!isset($message->role)) {
                                 $message->role = 'user';
                             }
@@ -267,8 +268,7 @@ class RoomController extends Controller
                     }
                     $historys = $data;
                     if (count($historys) > 0) {
-                        //Start loading
-                            $chatIds = [];
+                        $chatIds = [];
                         if ($room_id) {
                             $Room = ChatRoom::findorfail($room_id);
                             $chats = Chats::where('roomID', '=', $room_id);
@@ -277,9 +277,10 @@ class RoomController extends Controller
                                     $chat = new Chats();
                                     $chat->fill(['name' => 'Room Chat', 'bot_id' => $id, 'user_id' => Auth::user()->id, 'roomID' => $Room->id]);
                                     $chat->save();
-                                    $chatIds[$bot_name] = $chat->id;
                                 }
                             }
+                            $chats = Chats::where('roomID', '=', $room_id);
+                            $chatIds = $chats->pluck('id')->toarray();
                         } else {
                             $Room = new ChatRoom();
                             $Room->fill(['name' => $filename ?? $historys[0]->content, 'user_id' => $request->user()->id]);
@@ -600,7 +601,7 @@ class RoomController extends Controller
     {
         $llms = $request->input('llm');
         $selectedLLMs = $request->input('chatsTo');
-        $chained = (Session::get('chained') ?? true) == true;
+        $chained = $request->input('chain') == "on";
         if (count($selectedLLMs) > 0 && count($llms) > 0) {
             $result = Bots::wherein(
                 'model_id',
@@ -653,7 +654,7 @@ class RoomController extends Controller
             foreach ($chats as $chat) {
                 if (in_array($chat->bot_id, $selectedLLMs)) {
                     $bot = Bots::findOrFail($chat->bot_id);
-                    $result = $this->processBotConfig($chat->bot_id, 'auto', $Room->id, str_replace("\r\n", '\n', $input) . "\n");
+                    $result = $this->processBotConfig($chained, $chat->bot_id, 'auto', $Room->id, str_replace("\r\n", '\n', $input) . "\n");
                     if ($result == null) {
                         $history = new Histories();
                         $history->fill(['msg' => $input, 'chat_id' => $chat->id, 'isbot' => false, 'created_at' => $ct, 'updated_at' => $ct]);
@@ -694,7 +695,7 @@ class RoomController extends Controller
         return $Room->id;
     }
 
-    function processBotConfig($i, $promptType = 'auto', $roomId = null, $prependMessage = '')
+    function processBotConfig($chain, $i, $promptType = 'auto', $roomId = null, $prependMessage = '')
     {
         $startPrompt = $promptType . '-prompts';
 
@@ -731,11 +732,11 @@ class RoomController extends Controller
                     $deltaStart = date('Y-m-d H:i:s', strtotime($start . ' +1 second'));
 
                     $record = new Histories();
-                    $record->fill(['msg' => $prompts[0], 'chat_id' => $chatId, 'isbot' => false, 'chained' => Session::get('chained') ?? true, 'created_at' => $start, 'updated_at' => $start]);
+                    $record->fill(['msg' => $prompts[0], 'chat_id' => $chatId, 'isbot' => false, 'chained' => $chain ?? true, 'created_at' => $start, 'updated_at' => $start]);
                     $record->save();
 
                     $record = new Histories();
-                    $record->fill(['msg' => '* ...thinking... *', 'chat_id' => $chatId, 'chained' => Session::get('chained') ?? true, 'isbot' => true, 'created_at' => $deltaStart, 'updated_at' => $deltaStart]);
+                    $record->fill(['msg' => '* ...thinking... *', 'chat_id' => $chatId, 'chained' => $chain ?? true, 'isbot' => true, 'created_at' => $deltaStart, 'updated_at' => $deltaStart]);
                     $record->save();
                     BatchChat::dispatch($prompts, $record->id);
                     Redis::rpush('usertask_' . Auth::user()->id, $record->id);
@@ -751,6 +752,7 @@ class RoomController extends Controller
     public function new(Request $request)
     {
         $llms = $request->input('llm');
+        $chained = $request->input('chain') == "on";
         if (!request()->user()->hasPerm('Room_update_new_chat') || count($llms) == 0) {
             return redirect()->route('room.home');
         }
@@ -774,7 +776,7 @@ class RoomController extends Controller
         }
 
         foreach ($llms as $i) {
-            $result = $this->processBotConfig($i, 'start');
+            $result = $this->processBotConfig($chained, $i, 'start');
             if ($result != null) {
                 return $result;
             }
@@ -882,16 +884,14 @@ class RoomController extends Controller
         $roomId = $request->input('room_id');
         $selectedLLMs = $request->input('chatsTo');
         $input = $request->input('input');
-        if ($request->file()) {
-            $upload_result = $this->upload_file($request);
-            if ($upload_result['succeed']) {
-                $input = $upload_result['url'] . "\n" . $input;
-            } else {
-                return redirect()->route('room.chat', $roomId)->with('errorString', $upload_result['msg'])->withInput();
-            }
+        $attachments = $request->input('attachments');
+        $chained = $request->input('chain') == "on";
+
+        if (!empty($attachments) && is_array($attachments)) {
+            $attachmentBlock = "<<<attachment>>>\n" . implode("\n", $attachments) . "\n<<</attachment>>>\n";
+            $input = $attachmentBlock . $input;
         }
 
-        $chained = (Session::get('chained') ?? true) == true;
         if (count($selectedLLMs) > 0 && $roomId && $input) {
             $chats = Chats::where('roomID', $roomId)->get();
             $result = Bots::pluck('id')->toarray();
@@ -913,7 +913,7 @@ class RoomController extends Controller
             foreach ($chats as $chat) {
                 if (in_array($chat->bot_id, $selectedLLMs)) {
                     $bot = Bots::findOrFail($chat->bot_id);
-                    $result = $this->processBotConfig($chat->bot_id, 'auto', $roomId, str_replace("\r\n", '\n', $input) . "\n");
+                    $result = $this->processBotConfig($chained, $chat->bot_id, 'auto', $roomId, str_replace("\r\n", '\n', $input) . "\n");
                     if ($result == null) {
                         $history = new Histories();
                         $history->fill(['msg' => $input, 'chat_id' => $chat->id, 'isbot' => false, 'created_at' => $start, 'updated_at' => $start]);

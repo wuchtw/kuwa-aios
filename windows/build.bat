@@ -199,20 +199,27 @@ call php artisan key:generate --force
 :: Run DB migration and seeder
 call php artisan migrate --force
 call php artisan db:seed --class=InitSeeder --force
-
 popd
+:: Check if init.txt exists
 if exist init.txt (
-    setlocal
+    :: Read init.txt
     for /f "tokens=1,2 delims==" %%A in (init.txt) do (
         set "%%A=%%B"
     )
 
+    :: Extract name from email (username before @)
     for /f "delims=@ tokens=1" %%E in ("!username!") do (
         set "name=%%E"
     )
 
     pushd "..\src\multi-chat\"
     php artisan create:admin-user --name=!name! --email=!username! --password=!password!
+    :: Check autologin is true
+	if /i "!autologin!"=="true" (
+		:: Append the line to .env
+		echo. >> ".env"
+		echo APP_AUTO_EMAIL=!username!>> ".env"
+	)
     popd
     del init.txt
 ) else (
@@ -226,7 +233,7 @@ rmdir /Q /S storage\app\public\root\custom
 rmdir /Q /S storage\app\public\root\database
 rmdir /Q /S storage\app\public\root\bin
 rmdir /Q /S storage\app\public\root\bot
-rmdir /Q /S storage\app\public\root\bootstrap\bot
+rmdir /Q /S storage\app\public\root\bootstrap
 
 :: Create new storage link
 call php artisan storage:link

@@ -21,7 +21,7 @@ set "node_folder=%filename_NodeJS:~0,-4%"
 for /f "tokens=2 delims=-" %%v in ("%filename_NodeJS%") do set "version_NodeJS=%%v"
 
 REM Variables for PHP
-set "url_PHP=https://windows.php.net/downloads/releases/latest/php-8.3-Win32-vs16-x64-latest.zip"
+set "url_PHP=https://windows.php.net/downloads/releases/php-8.3.24-Win32-vs16-x64.zip"
 for %%I in ("%url_PHP%") do set "filename_PHP=%%~nxI"
 set "php_folder=%filename_PHP:~0,-4%"
 for /f "tokens=2 delims=-" %%v in ("%filename_PHP%") do set "version_PHP=%%v"

@@ -21,7 +21,7 @@ set "node_folder=%filename_NodeJS:~0,-4%"
 for /f "tokens=2 delims=-" %%v in ("%filename_NodeJS%") do set "version_NodeJS=%%v"
 
 REM Variables for PHP
-set "url_PHP=https://windows.php.net/downloads/releases/php-8.3.24-Win32-vs16-x64.zip"
+set "url_PHP=https://windows.php.net/downloads/releases/latest/php-8.3-Win32-vs16-x64-latest.zip"
 for %%I in ("%url_PHP%") do set "filename_PHP=%%~nxI"
 set "php_folder=%filename_PHP:~0,-4%"
 for /f "tokens=2 delims=-" %%v in ("%filename_PHP%") do set "version_PHP=%%v"
@@ -69,7 +69,7 @@ set "gitbash_folder=%filename_gitbash:~0,-7%"
 for /f "tokens=2 delims=-" %%v in ("%filename_gitbash%") do set "version_gitbash=%%v"
 
 REM Variables for FFmpeg
-set "url_ffmpeg=https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-7.0.2-essentials_build.zip"
+set "url_ffmpeg=https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-7.1.1-essentials_build.zip"
 for %%I in ("%url_ffmpeg%") do set "filename_ffmpeg=%%~nxI"
 set "ffmpeg_folder=%filename_ffmpeg:~0,-4%"
 for /f "tokens=2 delims=-" %%v in ("%filename_ffmpeg%") do set "version_ffmpeg=%%v"

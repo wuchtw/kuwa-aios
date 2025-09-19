@@ -1,6 +1,68 @@
 <x-app-layout>
     @include('components.modal.confirm-modal')
 
+    <div class="h-full">
+        <div class="mx-auto h-full">
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg h-full">
+                <div class="relative p-2 text-gray-900 dark:text-gray-100 h-full flex flex-col">
+                    <nav class="mb-2">
+                        <ul class="flex space-x-2 cloud-path">
+                        </ul>
+                    </nav>
+
+                    <!-- Error Popup -->
+                    <div id="upload-error-popup"
+                        class="hidden fixed inset-0 z-50 flex justify-center items-center bg-black bg-opacity-50">
+                        <div class="bg-gray-500 dark:bg-gray-700 p-4 rounded-lg shadow-lg w-1/3 text-center">
+                            <h3 class="text-xl text-white mb-2">Error</h3>
+                            <p id="upload-error-message" class="text-white"></p>
+                            <button id="close-error-popup"
+                                class="mt-4 px-4 py-2 bg-gray-600 text-white rounded">Close</button>
+                        </div>
+                    </div>
+
+                    <div id="file-window"
+                        class="flex-grow border-2 border-gray-400 rounded-lg p-2 flex flex-col transition-colors">
+                        <div class="mb-4 grid grid-cols-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 xl:grid-cols-10 2xl:grid-cols-12 mb-auto overflow-y-auto scrollbar"
+                            id="file-list"></div>
+
+                        <div id="drop-message" class="mt-2 text-center text-gray-600 dark:text-gray-400 hidden">
+                            Drop to upload
+                        </div>
+                    </div>
+
+                    <div id="context-menu"
+                        class="hidden fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 dark:bg-gray-800 dark:border-gray-600">
+                        <ul class="space-y-1">
+                            <li id="open-file"
+                                class="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded">
+                                {{ __('cloud.button.open') }}</li>
+                            <li id="open-file-tab"
+                                class="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded">
+                                {{ __('cloud.button.open_tab') }}</li>
+                            <li id="copy-file-url"
+                                class="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded">
+                                {{ __('cloud.button.copy_link') }}</li>
+                            <li id="rename-file"
+                                class="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded">
+                                {{ __('cloud.button.rename') }}</li>
+                            <li id="delete-file"
+                                class="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded">
+                                {{ __('cloud.button.delete') }}</li>
+                        </ul>
+                    </div>
+
+                    <!-- Progress Container at Bottom Right -->
+                    <div id="upload-progress-container"
+                        class="fixed bottom-5 right-5 w-80 max-h-[300px] overflow-y-auto overflow-x-hidden scrollbar bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg space-y-3">
+                        <!-- Dynamic Progress Bars will be inserted here -->
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         function formatSize(bytes) {
             const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
@@ -15,15 +77,20 @@
             return size.toFixed(2) + " " + units[unitIndex];
         }
 
-        function generatePathHtml(parent, path) {
-            parent.empty();
+        const pathContainer = $('.cloud-path');
+
+        function generatePathHtml(path) {
+            pathContainer.empty();
             const parts = path.split('/').filter(Boolean);
             const Perm = {{ Auth::user()->hasPerm('tab_Manage') ? 'true' : 'false' }};
-            const classes = Perm ? "text-blue-500 hover:underline cursor-pointer pr-2" : 'pr-2';
+            const classes = Perm ? "text-blue-500 hover:underline cursor-pointer" : '';
             const userId = {{ Auth::user()->id }};
-            const $ul = $('<ul class="flex cloud-path"></ul>').append(
-                `<li><span class="${classes}">/</span></li>`
-            );
+            const $ul = pathContainer;
+
+            // Add root path element
+            const $rootLi = $(`<li><span class="${classes}">/</span></li>`);
+            if (Perm) $rootLi.on('click', () => updatePath(''));
+            $ul.append($rootLi);
 
             let currentPath = '';
 
@@ -32,15 +99,12 @@
                     '{{ Auth::user()->name }}' :
                     part;
 
-                currentPath += `/${adjustedPart}/`;
-                const partPath = currentPath;
+                currentPath += `/${part}`;
+                const partPath = currentPath + '/';
                 const $partLi = $(`<li><span class="${classes}">${adjustedPart}/</span></li>`);
                 if (Perm) $partLi.on('click', () => updatePath(partPath));
                 $ul.append($partLi);
             });
-
-            if (Perm) $ul.find('li:first').on('click', () => updatePath(''));
-            parent.append($ul);
         }
 
         function updatePath(path) {
@@ -172,97 +236,83 @@
         }
 
         function populateFileList(data) {
-            const fileList = $('#file-list');
-            fileList.empty();
+            const fileList = $('#file-list').empty();
 
             data.result.explorer.forEach(item => {
-                const div = $('<div></div>').addClass(
-                        'hover:bg-gray-300 m-1 dark:hover:bg-gray-700 text-center overflow-hidden flex flex-col justify-center rounded-lg cursor-pointer p-2'
+                const isDotfileOrNoExtension = item.name.startsWith('.') || !item.name.includes('.');
+                const extensionText = isDotfileOrNoExtension ? 'extension' : item.icon;
+                const div = $('<div>')
+                    .addClass(
+                        'h-[100px] hover:bg-gray-300 m-1 dark:hover:bg-gray-700 text-center overflow-hidden flex flex-col justify-center rounded-lg cursor-pointer p-2'
                     )
                     .attr({
                         title: item.name,
                         'data-isdir': item.is_directory,
                         'data-url': data.result.query_path + "/" + item.name
-                    });
-
-                const icon = $('<i></i>').addClass(`${categoryToIcon[item.icon]} text-4xl mb-1`);
-                const filenameSpan = $('<span></span>').addClass(
-                    'text-gray-500 dark:text-gray-300 text-xs line-clamp-3 max-w-full flex-1').css('word-wrap',
-                    'break-word').text(item.name);
-
-                const extensionSpan = item.name.startsWith('.') || !item.name.includes('.') ?
-                    $('<span></span>').addClass('text-transparent').text('extension') :
-                    $('<span></span>').addClass('text-black dark:text-white').text(item.icon);
-
-                if (extensionSpan) div.append(extensionSpan);
-                div.append(icon, filenameSpan);
+                    })
+                    .append(
+                        $('<span>')
+                        .addClass(isDotfileOrNoExtension ? 'text-transparent' : 'text-black dark:text-white')
+                        .text(extensionText),
+                        $('<i>').addClass(`${categoryToIcon[item.icon]} text-4xl mb-1`),
+                        $('<span>')
+                        .addClass('text-gray-500 dark:text-gray-300 text-xs line-clamp-3 max-w-full flex-1')
+                        .css('word-wrap', 'break-word')
+                        .text(item.name)
+                    );
                 fileList.append(div);
             });
 
             const contextMenu = $('#context-menu');
             let selectedFile = null;
-            $(document).off('contextmenu', '#file-list > div');
-            $(document).off('click', '#file-list > div');
-            $(document).off('touchstart', '#file-list > div');
-            $('#open-file').off('click');
-            $('#open-file-tab').off('click');
-            $('#copy-file-url').off('click');
-            $('#rename-file').off('click');
-            $('#delete-file').off('click');
-            $(document).off('touchend');
+
+            // Clear previous event handlers
+            $(document).off('contextmenu click touchstart touchend', '#file-list > div');
+            $('#open-file, #open-file-tab, #copy-file-url, #rename-file, #delete-file').off('click');
+            $(document).off('click', function(event) {}); // Specific off for the click outside context menu
+
+            $('#rename-file').hide();
+
             $(document).on('contextmenu', '#file-list > div', function(event) {
-                $('#open-file-tab').show();
                 event.preventDefault();
                 selectedFile = $(this);
+                const isdir = selectedFile.data('isdir');
+                $('#open-file-tab').toggle(!isdir); // Show/hide based on isdir
                 contextMenu.css({
                     display: 'block',
                     left: event.pageX + 'px',
                     top: event.pageY + 'px'
                 });
-                const isdir = $(this).data('isdir');
-                if (isdir) {
-                    $('#open-file-tab').hide();
-                }
             });
+
             $(document).on('click', '#file-list > div', function() {
                 contextMenu.hide();
                 cloud_open($(this));
             });
-            $('#open-file').on('click', function() {
+
+            $('#open-file').on('click', () => {
                 contextMenu.hide();
                 cloud_open(selectedFile);
             });
-            $('#open-file-tab').on('click', function() {
-                const url = selectedFile.data('url');
-                const baseUrl = window.location.origin;
-                const fullUrl = baseUrl + '/storage/root' + url;
+
+            $('#open-file-tab').on('click', () => {
+                const fullUrl = encodeURI(`${window.location.origin}/storage/root${selectedFile.data('url')}`);
                 window.open(fullUrl, '_blank');
                 contextMenu.hide();
             });
-            $('#copy-file-url').on('click', function() {
-                const fileUrl = selectedFile.data('url');
-                const baseUrl = window.location.origin;
-                const fullUrl = encodeURI(baseUrl + '/storage/root' + fileUrl);
 
-                var textArea = document.createElement("textarea");
-                textArea.value = fullUrl;
-                document.body.appendChild(textArea);
-                textArea.select();
-
-                try {
-                    document.execCommand("copy");
-                } catch (err) {
-                    console.log("Copy not supported or failed: ", err);
-                }
-
-                document.body.removeChild(textArea);
+            $('#copy-file-url').on('click', () => {
+                const fullUrl = encodeURI(`${window.location.origin}/storage/root${selectedFile.data('url')}`);
+                navigator.clipboard.writeText(fullUrl).catch(err => console.error("Copy failed: ", err));
                 contextMenu.hide();
             });
-            $('#rename-file').on('click', function() {
-                const url = selectedFile.data('url');
+
+            $('#rename-file').on('click', () => {
+                // Renaming logic
                 contextMenu.hide();
             });
-            $('#delete-file').on('click', function() {
+
+            $('#delete-file').on('click', () => {
                 const url = selectedFile.data('url');
                 const title = selectedFile.prop('title');
                 const currentPath = url.split('/').slice(0, -1).join('/');
@@ -271,13 +321,9 @@
                 showConfirmationModal(
                     `{{ __('cloud.header.confirm_delete') }}`,
                     `{{ __('cloud.label.about_to_delete') }}<span class="line-clamp-4" style="word-wrap:break-word">${title}</span> {{ __('cloud.label.delete_warning') }}`,
-                    function() {
+                    () => {
                         client.deleteCloud(url)
-                            .then(function(response) {
-                                if (response.status == 'success') {
-                                    updatePath(currentPath);
-                                } else {}
-                            })
+                            .then(response => response.status === 'success' && updatePath(currentPath))
                             .catch(console.error);
                     },
                     null,
@@ -285,15 +331,19 @@
                     '{{ __('cloud.button.cancel') }}',
                 );
             });
+
             $(document).on('click', function(event) {
-                if (!contextMenu.is(event.target) && contextMenu.has(event.target).length === 0 && selectedFile &&
-                    !selectedFile.is(event.target) && selectedFile.has(event.target).length === 0) {
+                if (!contextMenu.is(event.target) && contextMenu.has(event.target).length === 0 &&
+                    (!selectedFile || (!selectedFile.is(event.target) && selectedFile.has(event.target).length ===
+                        0))) {
                     contextMenu.hide();
                 }
             });
+
+            let touchTimer;
             $(document).on('touchstart', '#file-list > div', function(event) {
                 selectedFile = $(this);
-                setTimeout(() => {
+                touchTimer = setTimeout(() => {
                     contextMenu.css({
                         display: 'block',
                         left: event.originalEvent.touches[0].pageX + 'px',
@@ -301,11 +351,27 @@
                     });
                 }, 500);
             });
-            $(document).on('touchend', function() {
-                contextMenu.hide();
+
+            $(document).on('touchend', '#file-list > div', function() {
+                clearTimeout(touchTimer);
             });
-            generatePathHtml($('nav .cloud-path'), data.result.query_path);
+
+            $(document).on('touchend', function(event) {
+                if (!contextMenu.is(event.target) && contextMenu.has(event.target).length === 0) {
+                    contextMenu.hide();
+                }
+            });
+            $(document).trigger('update-path-display', {
+                path: data.result.query_path
+            });
         }
+
+
+        $(document).on('update-path-display', function(event, data) {
+            if (data && data.path) {
+                generatePathHtml(data.path);
+            }
+        });
 
         function createWindow(windowName, contentTag, width, height) {
             const viewportWidth = $(window).width(),
@@ -440,70 +506,6 @@
             });
         }
         updatePath('/homes/' + {{ Auth::user()->id }});
-    </script>
-    <div class="h-full">
-        <div class="mx-auto h-full">
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg h-full">
-                <div class="relative p-2 text-gray-900 dark:text-gray-100 h-full flex flex-col">
-                    <nav class="mb-2">
-                        <ul class="flex space-x-2 cloud-path">
-                        </ul>
-                    </nav>
-
-                    <!-- Error Popup -->
-                    <div id="upload-error-popup"
-                        class="hidden fixed inset-0 z-50 flex justify-center items-center bg-black bg-opacity-50">
-                        <div class="bg-gray-500 dark:bg-gray-700 p-4 rounded-lg shadow-lg w-1/3 text-center">
-                            <h3 class="text-xl text-white mb-2">Error</h3>
-                            <p id="upload-error-message" class="text-white"></p>
-                            <button id="close-error-popup"
-                                class="mt-4 px-4 py-2 bg-gray-600 text-white rounded">Close</button>
-                        </div>
-                    </div>
-
-                    <div id="file-window"
-                        class="flex-grow border-2 border-gray-400 rounded-lg p-2 flex flex-col transition-colors">
-                        <div class="mb-4 grid grid-cols-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 xl:grid-cols-10 2xl:grid-cols-12 mb-auto overflow-y-auto scrollbar"
-                            id="file-list"></div>
-
-                        <div id="drop-message" class="mt-2 text-center text-gray-600 dark:text-gray-400 hidden">
-                            Drop to upload
-                        </div>
-                    </div>
-
-                    <div id="context-menu"
-                        class="hidden fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 dark:bg-gray-800 dark:border-gray-600">
-                        <ul class="space-y-1">
-                            <li id="open-file"
-                                class="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded">
-                                {{ __('cloud.button.open') }}</li>
-                            <li id="open-file-tab"
-                                class="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded">
-                                {{ __('cloud.button.open_tab') }}</li>
-                            <li id="copy-file-url"
-                                class="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded">
-                                {{ __('cloud.button.copy_link') }}</li>
-                            <li id="rename-file"
-                                class="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded">
-                                {{ __('cloud.button.rename') }}</li>
-                            <li id="delete-file"
-                                class="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1 rounded">
-                                {{ __('cloud.button.delete') }}</li>
-                        </ul>
-                    </div>
-
-                    <!-- Progress Container at Bottom Right -->
-                    <div id="upload-progress-container"
-                        class="fixed bottom-5 right-5 w-80 max-h-[300px] overflow-y-auto overflow-x-hidden scrollbar bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg space-y-3">
-                        <!-- Dynamic Progress Bars will be inserted here -->
-                    </div>
-
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
         $(document).ready(function() {
             const maxTasks = 5;
             const progressContainer = $('#upload-progress-container');

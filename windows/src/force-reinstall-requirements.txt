@@ -1,0 +1,7 @@
+# Python packages that will be force reinstall when executing build.bat.
+
+kuwa-executor
+kuwa-kernel
+kuwa-client
+kuwa-rag
+llama-cpp-python

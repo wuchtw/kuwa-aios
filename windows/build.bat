@@ -260,7 +260,8 @@ popd
 REM Sync locked Python dependencies
 echo Syncing Python dependencies
 pushd ".."
-uv pip sync --reinstall --system windows\src\requirements.txt.lock
+uv pip uninstall --system -r windows\src\force-reinstall-requirements.txt
+uv pip sync --refresh --system windows\src\requirements.txt.lock
 popd
 
 REM Install dependency of whisper

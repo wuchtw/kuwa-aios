@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Storage;
 use App\Models\SystemSetting;
@@ -88,6 +89,7 @@ class CloudController extends Controller
         if ($result) {
             $user = $result;
             if (User::find($user->id)->hasPerm('tab_Cloud')) {
+                Auth::setUser(User::find($user->id));
                 $authUserId = auth()->id();
                 $path = $this->resolvePath($paths);
                 $user_dir = $this->resolvePath('/homes/' . $authUserId);
@@ -196,6 +198,7 @@ class CloudController extends Controller
             $user = $result;
 
             if (User::find($user->id)->hasPerm('tab_Cloud')) {
+                Auth::setUser(User::find($user->id));
                 $authUserId = auth()->id();
                 $path = $this->resolvePath($paths);
                 $user_dir = $this->resolvePath('/homes/' . $authUserId);

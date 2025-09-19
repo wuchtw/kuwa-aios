@@ -285,28 +285,6 @@ class KuwaClient {
         return this._makeFetchRequest(url, "POST", headers, JSON.stringify(requestBody), callbacks);
     }
     /**
-     * Updates the user's session settings via a JSON request.
-     * @param {object} settings - An object containing the settings to update.
-     * @param {boolean} settings.chain - The value for the 'chain' setting.
-     * @param {boolean} settings.use_memory - The value for the 'use_memory' setting.
-     * @param {boolean} settings.attach_link - The value for the 'attach_link' setting.
-     * @param {boolean} settings.search_engine - The value for the 'search_engine' setting.
-     * @param {boolean} settings.search_engine_parm - The value for the 'search_engine_parm' setting.
-     * @param {object} [callbacks={}] - Optional callbacks for success and error events.
-     * @returns {Promise<object>} A promise resolving with the API confirmation.
-     * @throws {Error} Throws if the API request fails.
-     */
-    async updateUserSettings(settings, callbacks = {}) {
-        const url = `${this.baseUrl}/api/user/update/profile`; // Your updated endpoint
-        const headers = {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${this.authToken}`,
-        };
-        const requestBody = JSON.stringify(settings);
-
-        return this._makeXHRRequest(url, "POST", headers, requestBody, callbacks);
-    }
-    /**
      * Uploads a file to the user's cloud storage with progress tracking.
      * This method uniquely uses XHR to provide progress events.
      * @param {File} file - The file object, typically from an `<input type="file">` element.

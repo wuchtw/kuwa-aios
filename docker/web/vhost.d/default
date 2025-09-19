@@ -2,7 +2,7 @@ add_header X-Frame-Options "SAMEORIGIN";
 add_header X-Content-Type-Options "nosniff";
 charset utf-8;
 client_max_body_size 101M;
-proxy_read_timeout 600;
+proxy_read_timeout 18000;
 
 root /app/public;
 index index.php index.html;

@@ -132,6 +132,8 @@ class ChatController extends Controller
 
     public function SSE(Request $request)
     {
+        ignore_user_abort(true);
+        set_time_limit(0);
         $awaiting = $request->input('listening');
         $response = new StreamedResponse();
         $response->headers->set('Content-Type', 'text/event-stream');

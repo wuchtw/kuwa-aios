@@ -182,7 +182,7 @@
                     .attr({
                         title: item.name,
                         'data-isdir': item.is_directory,
-                        'data-url': data.result.query_path + item.name
+                        'data-url': data.result.query_path + "/" + item.name
                     });
 
                 const icon = $('<i></i>').addClass(`${categoryToIcon[item.icon]} text-4xl mb-1`);

@@ -22,7 +22,7 @@
                     </div>
 
                     <div id="file-window"
-                        class="flex-grow border-2 border-gray-400 rounded-lg p-2 flex flex-col transition-colors">
+                        class="flex-grow border-2 border-gray-400 rounded-lg p-2 flex flex-col transition-colors overflow-hidden">
                         <div class="mb-4 grid grid-cols-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 xl:grid-cols-10 2xl:grid-cols-12 mb-auto overflow-y-auto scrollbar"
                             id="file-list"></div>
 
@@ -54,7 +54,7 @@
 
                     <!-- Progress Container at Bottom Right -->
                     <div id="upload-progress-container"
-                        class="fixed bottom-5 right-5 w-80 max-h-[300px] overflow-y-auto overflow-x-hidden scrollbar bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg space-y-3">
+                        class="hidden bottom-5 right-5 w-80 max-h-[300px] overflow-y-auto overflow-x-hidden scrollbar bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg space-y-3">
                         <!-- Dynamic Progress Bars will be inserted here -->
                     </div>
 
@@ -510,68 +510,58 @@
             const maxTasks = 5;
             const progressContainer = $('#upload-progress-container');
 
-            $('#file-window').on('dragover', function(event) {
-                event.preventDefault();
-                $(this).removeClass('border-gray-400').addClass('border-blue-500');
-                $('#drop-message').removeClass('hidden');
-            });
+            const toggleDropMessage = (show) => {
+                $('#file-window').toggleClass('border-blue-500', show).toggleClass('border-gray-400', !show);
+                $('#drop-message').toggleClass('hidden', !show);
+            };
 
-            $('#file-window').on('drop', function(event) {
-                event.preventDefault();
-                $(this).removeClass('border-blue-500').addClass('border-gray-400');
-                $('#drop-message').addClass('hidden');
+            $('#file-window')
+                .on('dragover', e => {
+                    e.preventDefault();
+                    toggleDropMessage(true);
+                })
+                .on('drop', e => {
+                    e.preventDefault();
+                    toggleDropMessage(false);
+                    if (e.originalEvent.dataTransfer.files.length) {
+                        uploadFile(e.originalEvent.dataTransfer.files[0]);
+                    }
+                })
+                .on('dragleave', () => toggleDropMessage(false));
 
-                const files = event.originalEvent.dataTransfer.files;
-                if (files.length > 0) {
-                    uploadFile(files[0]);
-                }
-            });
+            $('#uploadButton').on('click', () => $('#fileInput').click());
 
-            $('#file-window').on('dragleave', function() {
-                $(this).removeClass('border-blue-500').addClass('border-gray-400');
-                $('#drop-message').addClass('hidden');
-            });
-
-            $('#uploadButton').on('click', function() {
-                $('#fileInput').click();
-            });
-
-            $('#fileInput').on('change', function(event) {
-                const file = event.target.files[0];
-                if (file) {
-                    uploadFile(file);
+            $('#fileInput').on('change', e => {
+                if (e.target.files[0]) {
+                    uploadFile(e.target.files[0]);
                 }
             });
 
             function showNotification(type, message, duration = 3000) {
                 const id = `notification-${Date.now()}`;
-                const iconClass = type === 'success' ? 'fas fa-check-circle text-green-500' :
-                    type === 'error' ? 'fas fa-exclamation-circle text-red-500' :
-                    'fas fa-info-circle text-blue-500';
+                const iconClass = {
+                    success: 'fas fa-check-circle text-green-500',
+                    error: 'fas fa-exclamation-circle text-red-500',
+                    info: 'fas fa-info-circle text-blue-500'
+                } [type];
 
-                const notification = $('<div>')
-                    .attr('id', id)
-                    .addClass(
-                        'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-lg rounded-lg p-4 flex items-center space-x-3 animate-slide-in-right'
-                    );
-
-                const icon = $('<i>')
-                    .addClass(iconClass);
-
-                const messageSpan = $('<span>')
-                    .text(message);
-
-                notification.append(icon, messageSpan);
-
-                progressContainer.prepend(notification); // Append to upload-progress-container
-
+                const notification = $('<div>', {
+                        id: id,
+                        class: 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-lg rounded-lg p-4 flex items-center space-x-3 animate-slide-in-right'
+                    })
+                    .append($('<i>').addClass(iconClass), $('<span>').text(message));
+                progressContainer.removeClass("hidden").addClass("fixed")
+                progressContainer.prepend(notification);
                 setTimeout(() => hideNotification(id), duration);
             }
 
             function hideNotification(id) {
-                const notification = $(`#${id}`);
-                notification.addClass('animate-slide-out-right');
-                setTimeout(() => notification.remove(), 500);
+                $(`#${id}`).addClass('animate-slide-out-right').on('animationend', function() {
+                    $(this).remove();
+                    if (progressContainer.children().length == 0) {
+                        progressContainer.addClass("hidden").removeClass("fixed")
+                    }
+                });
             }
 
             function uploadFile(file) {
@@ -579,10 +569,6 @@
                 const taskContainer = $('<div>', {
                     id: taskId,
                     class: 'w-full bg-gray-100 dark:bg-gray-700 p-2 rounded-lg shadow-md'
-                });
-
-                const progressWrapper = $('<div>', {
-                    class: 'w-full bg-gray-200 dark:bg-gray-600 rounded-full'
                 });
                 const progressBar = $('<div>', {
                     class: 'bg-blue-500 h-2 rounded-full',
@@ -593,31 +579,32 @@
                     text: '0%'
                 });
 
-                progressWrapper.append(progressBar);
-                taskContainer.append(progressWrapper, progressText);
+                taskContainer.append($('<div>', {
+                    class: 'w-full bg-gray-200 dark:bg-gray-600 rounded-full'
+                }).append(progressBar), progressText);
+                progressContainer.removeClass("hidden").addClass("fixed")
                 progressContainer.prepend(taskContainer);
                 if (progressContainer.children().length > maxTasks) {
                     progressContainer.children().last().remove();
                 }
+                if (progressContainer.children().length == 0) {
+                    progressContainer.addClass("hidden").removeClass("fixed")
+                }
 
                 client.uploadFile(file, {
-                    onProgress: function({
-                        loaded,
-                        total,
+                    onProgress: ({
                         percent
-                    }) {
-                        if (total) {
-                            progressBar.css('width', percent + '%');
-                            progressText.text(Math.round(percent) + '%');
-                        }
+                    }) => {
+                        progressBar.css('width', `${percent}%`);
+                        progressText.text(`${Math.round(percent)}%`);
                     },
-                    onSuccess: function(response) {
+                    onSuccess: (response) => {
                         progressText.text('Upload complete!');
                         setTimeout(() => taskContainer.remove(), 2000);
                         showNotification('success', 'File uploaded successfully!');
                         updatePath(response.result.split('/storage/root')[1].replace(/\/[^/]+$/, '/'));
                     },
-                    onError: function(error) {
+                    onError: (error) => {
                         progressText.text('Upload failed');
                         setTimeout(() => taskContainer.remove(), 2000);
                         showNotification('error', `Upload failed: ${error.message}`);
@@ -625,9 +612,7 @@
                 });
             }
 
-            $('#close-error-popup').on('click', function() {
-                $('#upload-error-popup').addClass('hidden');
-            });
+            $('#close-error-popup').on('click', () => $('#upload-error-popup').addClass('hidden'));
         });
     </script>
 </x-app-layout>

@@ -422,6 +422,8 @@ class ProfileController extends Controller
 
     public function api_auth(Request $request)
     {
+        ignore_user_abort(true);
+        set_time_limit(0);
         $jsonData = $request->json()->all();
         $result = DB::table('personal_access_tokens')
             ->join('users', 'tokenable_id', '=', 'users.id')
@@ -520,8 +522,10 @@ class ProfileController extends Controller
         }
     }
     
-    private function nonstreaming_response(&$user, &$history, &$llm){
-
+    private function nonstreaming_response(&$user, &$history, &$llm)
+    {
+        ignore_user_abort(true);
+        set_time_limit(0);
         $bot_output = "";
         $executor_exit_code = null;
         $backend_callback = function ($event, $chunk) use (&$history, &$llm, &$bot_output, &$executor_exit_code){
@@ -567,8 +571,10 @@ class ProfileController extends Controller
         return response()->json($resp);
     }
 
-    private function streaming_response(&$user, &$history, &$llm){
-
+    private function streaming_response(&$user, &$history, &$llm)
+    {
+        ignore_user_abort(true);
+        set_time_limit(0);
         $response = new StreamedResponse();
         $response->headers->set('Content-Type', 'text/event-stream');
         $response->headers->set('Cache-Control', 'no-cache');
@@ -709,6 +715,8 @@ class ProfileController extends Controller
 
     public function api_stream(Request $request)
     {
+        ignore_user_abort(true);
+        set_time_limit(0);
         if (config('app.API_Key') == null || config('app.API_Key') != $request->input('key')) {
             throw new \Exception("API key doesn't match app.API_Key.");
         }
@@ -745,6 +753,8 @@ class ProfileController extends Controller
         return $response;
     }
     public static function read_backend_stream($history_id, $user_id, $callback){
+        ignore_user_abort(true);
+        set_time_limit(0);
         /**
          * Read from the backend redis message queue.
          * The new result will pass to the callback function.

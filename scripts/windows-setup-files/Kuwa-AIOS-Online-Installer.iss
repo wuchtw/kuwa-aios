@@ -1,5 +1,5 @@
 #define MyAppName "Kuwa GenAI OS"
-#define MyAppVersion "v0.4.0"
+#define MyAppVersion "v0.4.1"
 #define MyAppPublisher "Kuwa AI"
 #define MyAppURL "https://kuwaai.tw/os/intro"
 #define MyAppIcon "..\..\src\multi-chat\public\images\kuwa-logo.ico"
@@ -198,12 +198,12 @@ begin
     DownloadPage.Clear;
     DownloadPage.Add('https://github.com/wenshui2008/RunHiddenConsole/releases/download/1.0/RunHiddenConsole.zip', 'packages\RunHiddenConsole.zip', '');
     DownloadPage.Add('https://nodejs.org/dist/v20.11.1/node-v20.11.1-win-x64.zip', 'packages\node.zip', '');
-    DownloadPage.Add('https://windows.php.net/downloads/releases/php-8.3.24-Win32-vs16-x64.zip', 'packages\php.zip', '');
+    DownloadPage.Add('https://windows.php.net/downloads/releases/archives/php-8.3.24-Win32-vs16-x64.zip', 'packages\php.zip', '');
     DownloadPage.Add('https://nginx.org/download/nginx-1.26.3.zip', 'packages\nginx.zip', '');
     DownloadPage.Add('https://www.python.org/ftp/python/3.10.11/python-3.10.11-embed-amd64.zip', 'packages\python.zip', '');
     DownloadPage.Add('https://github.com/redis-windows/redis-windows/releases/download/6.0.20/Redis-6.0.20-Windows-x64-msys2.zip', 'packages\redis.zip', '');
     DownloadPage.Add('https://github.com/git-for-windows/git/releases/download/v2.45.1.windows.1/PortableGit-2.45.1-64-bit.7z.exe', 'packages\gitbash.7z.exe', '');
-    DownloadPage.Add('https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-7.0.2-essentials_build.zip', 'packages\ffmpeg.zip', '');
+    DownloadPage.Add('https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-7.1.1-essentials_build.zip', 'packages\ffmpeg.zip', '');
 
     DownloadPage.Show;
     

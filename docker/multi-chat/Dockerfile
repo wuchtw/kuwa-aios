@@ -82,7 +82,7 @@ VOLUME ${KUWA_ROOT}
 COPY src/bot/init/*.bot ${KUWA_BOT_DIR}
 
 # Setup the entry point
-ENV KUWA_MULTI_CHAT_VERSION="0.4.0-docker1"
+ENV KUWA_MULTI_CHAT_VERSION="0.4.1-docker1"
 
 ENV no_proxy="kernel,web,localhost,127.0.0.0/8,::1,${no_proxy}"
 ENV NO_PROXY="kernel,web,localhost,127.0.0.0/8,::1,${NO_PROXY}"

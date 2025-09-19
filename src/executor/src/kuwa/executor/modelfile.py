@@ -63,6 +63,61 @@ def extract_text_from_quotes(text):
         return text.strip()
 
 
+def discard_comments(text_string):
+    """
+    Discards comments from a string. Comments begin with '#' unless they are
+    enclosed within paired quotes (single or double).
+
+    Args:
+        text_string: The input string that may contain comments.
+
+    Returns:
+        The string with comments removed.
+
+    Examples:
+        >>> discard_comments('123"[##:##:## -> ##:##:#]" #comment')
+        '123"[##:##:## -> ##:##:#]"'
+        >>> discard_comments('This is a test # This is a comment')
+        'This is a test '
+        >>> discard_comments('No comments here.')
+        'No comments here.'
+        >>> discard_comments('string with "#" inside quotes')
+        'string with "#" inside quotes'
+        >>> discard_comments('single quote string with \'#\' inside # comment')
+        'single quote string with \'#\' inside '
+        >>> discard_comments('# This is a full line comment')
+        ''
+        >>> discard_comments('')
+        ''
+        >>> discard_comments('"#" # another comment')
+        '"#"'
+        >>> discard_comments('no hash')
+        'no hash'
+    """
+    result = []
+    in_double_quotes = False
+    in_single_quotes = False
+
+    i = 0
+    while i < len(text_string):
+        char = text_string[i]
+
+        if char == '"' and not in_single_quotes:
+            in_double_quotes = not in_double_quotes
+            result.append(char)
+        elif char == "'" and not in_double_quotes:
+            in_single_quotes = not in_single_quotes
+            result.append(char)
+        elif char == "#" and not in_double_quotes and not in_single_quotes:
+            # Found a comment outside of quotes, discard the rest of the string
+            break
+        else:
+            result.append(char)
+        i += 1
+
+    return "".join(result).strip()
+
+
 class ParameterDict(dict):
     def __missing__(self, key):
         """
@@ -121,7 +176,10 @@ class Script:
                 )
 
             count = Counter(script)
-            if count[Script.CONDITIONAL_FORWARD_JUMP_SYMBOL] != count[Script.CONDITIONAL_BACKWARD_JUMP_SYMBOL]:
+            if (
+                count[Script.CONDITIONAL_FORWARD_JUMP_SYMBOL]
+                != count[Script.CONDITIONAL_BACKWARD_JUMP_SYMBOL]
+            ):
                 raise ScriptSyntaxError("Unmatched parentheses")
 
             return True
@@ -252,8 +310,10 @@ class Modelfile:
                 # Filter out comments
                 comment_prefix = "#"
                 if comment_prefix in name:
+                    name = discard_comments(name)
                     args = ""
-                args = args.split(comment_prefix)[0]
+                else:
+                    args = discard_comments(args)
 
                 parsed_modelfile = Modelfile.append_command(
                     name, args, parsed_modelfile

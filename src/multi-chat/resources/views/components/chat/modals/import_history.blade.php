@@ -28,7 +28,8 @@
                 <label for="import_file_input"
                     class="mx-auto bg-green-500 hover:bg-green-600 px-3 py-2 rounded cursor-pointer text-white">{{ __('chat.button.import_from_file') }}</label>
                 <hr class="my-4 border-black border-gray-300 dark:border-gray-600" />
-                <form method="post" action="{{ route('room.import') }}">
+                <form method="post" action="{{ route('room.import') }}"
+                    onsubmit="$('input[name=\'chain\']').prop('checked', $('#chain_toggle').is(':checked'))">
                     @csrf
                     @if ($llms)
                         @foreach ($llms as $llm)
@@ -43,8 +44,8 @@
                         placeholder="{{ __('chat.placeholder.drag_and_drop') }}"
                         class="w-full pl-4 pr-12 py-2 rounded text-black scrollbar dark:text-white placeholder-black dark:placeholder-white bg-gray-200 dark:bg-gray-600 border border-gray-300 focus:outline-none shadow-none border-none focus:ring-0 focus:border-transparent rounded-l-md resize-none"></textarea>
                     <input id="import_file_name" name="import_file_name" type='text' hidden>
+                    <input type="checkbox" name="chain" class="hidden">
                 </form>
-
                 <input id="import_file_input" type='file' hidden>
             </div>
             <script>

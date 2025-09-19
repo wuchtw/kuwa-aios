@@ -17,7 +17,7 @@ return [
     |
     */
 
-    'default' => env('LOG_CHANNEL', 'stack'),
+    'default' => env('LOG_CHANNEL', 'daily'),
 
     /*
     |--------------------------------------------------------------------------
@@ -122,6 +122,7 @@ return [
             'driver' => 'single',
             'path' => storage_path('logs/analyze.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 14,
         ]
     ],
 

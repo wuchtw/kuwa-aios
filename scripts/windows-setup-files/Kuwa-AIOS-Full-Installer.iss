@@ -1,5 +1,5 @@
 #define MyAppName "Kuwa GenAI OS"
-#define MyAppVersion "v0.4.0"
+#define MyAppVersion "v0.4.1"
 #define MyAppPublisher "Kuwa AI"
 #define MyAppURL "https://kuwaai.tw/os/intro"
 #define MyAppIcon "..\..\src\multi-chat\public\images\kuwa-logo.ico"
